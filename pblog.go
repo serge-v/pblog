@@ -98,7 +98,7 @@ func initVars() {
 		panic(err)
 	}
 
-	buildDir, err = filepath.Abs("build")
+	buildDir, err = filepath.Abs(".")
 	if err != nil {
 		panic(err)
 	}
@@ -109,12 +109,6 @@ func initVars() {
 
 	if !exists(cacheDir) {
 		if err := os.Mkdir(cacheDir, 0700); err != nil {
-			panic(err)
-		}
-	}
-	
-	if !exists(buildDir) {
-		if err := os.Mkdir(buildDir, 0700); err != nil {
 			panic(err)
 		}
 	}
