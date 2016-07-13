@@ -14,11 +14,10 @@ body{
 	padding:0
 	10px
 }
-h1,h2,h3,h4
-{
-	line-height:1.2
-}
-a{ color:#444; }
+
+h1,h2,h3,h4 { line-height:1.2 }
+a{ color:#375eab; text-decoration: none }
+a:hover { text-decoration: underline; }
 </style>
 </head>
 
@@ -26,11 +25,20 @@ a{ color:#444; }
 
 <div style="text-align:center">
 
-<h2>{title}</h2>
-<a href="{prev}">earlier</a><a href="index.html">home</a><br>
-{contents}
+<div style="text-align:left">
+{prev_href}
 <br>
-<a href="{prev}">earlier</a><a href="index.html">home</a>
+{next_href}
+</div>
+
+<h2>{title}</h2>
+{contents}
+
+<div style="text-align:left">
+{prev_href}
+<br>
+{next_href}
+</div>
 
 </div>
 

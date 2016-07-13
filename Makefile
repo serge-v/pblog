@@ -2,7 +2,7 @@ VERSION=$(shell git describe --long --tags)
 DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z)
 LDFLAGS="-X main.date=$(DATE) -X main.version=$(VERSION)"
 
-all: pblog cgi-server
+all: pblog pblog.linux cgi-server
 
 pblog: pblog.go
 	go build -ldflags $(LDFLAGS) pblog.go
@@ -14,3 +14,7 @@ cgi-server: cgi-server.go
 	go build cgi-server.go
 
 deploy-prod: pblog.linux
+
+clean:
+	rm -f pblog cgi-server pblog.linux
+
