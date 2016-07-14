@@ -98,11 +98,14 @@ func initVars() {
 		panic(err)
 	}
 
-	buildDir, err = filepath.Abs(".")
-	if err != nil {
-		panic(err)
+	buildDir = os.Getenv("HOME") + "/www/pblog"
+	if !exists(buildDir) {
+		cacheDir, err = filepath.Abs("build")
+		if err != nil {
+			panic(err)
+		}
 	}
-	
+
 	println("ftpDir:  ", ftpDir)
 	println("cacheDir:", cacheDir)
 	println("buildDir:", buildDir)
