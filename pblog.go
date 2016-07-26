@@ -111,7 +111,7 @@ func initVars() {
 	println("buildDir:", buildDir)
 
 	if !exists(cacheDir) {
-		if err := os.Mkdir(cacheDir, 0700); err != nil {
+		if err := os.Mkdir(cacheDir, 0755); err != nil {
 			panic(err)
 		}
 	}
@@ -178,7 +178,7 @@ func convertPhotos(entries []*blogEntry) {
 		dir := filepath.Dir(entry.path)
 		d := filepath.Join(cacheDir, dir, base)
 		if !exists(d) {
-			if err := os.Mkdir(d, 0700); err != nil {
+			if err := os.Mkdir(d, 0755); err != nil {
 				panic(err)
 			}
 			println("created:", d)
