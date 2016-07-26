@@ -11,5 +11,6 @@ curl \
 
 ../aceapi/apiexec "chmod +x ../../pblog/pblog"
 ../aceapi/apiexec "ls -l ../../pblog/pblog"
+../aceapi/apiexec "md5sum ../../pblog/pblog"
 
 md5 pblog.linux
