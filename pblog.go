@@ -100,7 +100,7 @@ func initVars() {
 
 	buildDir = os.Getenv("HOME") + "/www/pblog"
 	if !exists(buildDir) {
-		cacheDir, err = filepath.Abs("build")
+		buildDir, err = filepath.Abs("build")
 		if err != nil {
 			panic(err)
 		}
