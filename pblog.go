@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"regexp"
+	"flag"
 )
 
 const maxToConvert = 200
@@ -25,9 +26,13 @@ type blogEntry struct {
 	photos []*photo
 }
 
-var ftpDir, cacheDir, buildDir, mainPage string
-var entries []*blogEntry
-var lastEntry *blogEntry
+var (
+	ftpDir, cacheDir, buildDir, mainPage string
+	entries []*blogEntry
+	lastEntry *blogEntry
+	version, date     string
+	showVersion = flag.Bool("v", false, "show version")
+)
 
 func collectFtpDirs(path string, info os.FileInfo, err error) error {
 	if path == "." {
@@ -258,6 +263,13 @@ func linkIndexPage() {
 }
 
 func main() {
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("version:", version)
+		fmt.Println("date:   ", date)
+		return
+	}
+
 	initVars()
 	
 	if err := os.Chdir(ftpDir); err != nil {
