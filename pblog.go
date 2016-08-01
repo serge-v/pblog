@@ -1,3 +1,11 @@
+// pblog generates photo blog as set of static html pages.
+// Photo directory should be in format:
+//     ftpdir
+//         20150101_name1
+//         ....
+//         20160101_nameN
+// pblog will produce: page-000.html .. page-NNN.html pages and link last page to index.html
+
 package main
 
 import (
