@@ -17,6 +17,8 @@ import (
 	"strings"
 	"regexp"
 	"flag"
+	"archive/zip"
+	"io"
 )
 
 const maxToConvert = 200
@@ -35,7 +37,7 @@ type blogEntry struct {
 }
 
 var (
-	ftpDir, cacheDir, buildDir, mainPage string
+	ftpDir, cacheDir, buildDir, mainPage, tocPage string
 	entries []*blogEntry
 	lastEntry *blogEntry
 	version, date     string
@@ -66,6 +68,70 @@ func collectFtpDirs(path string, info os.FileInfo, err error) error {
 	}
 
 	return nil
+}
+
+func convertZip(path string, info os.FileInfo, err error) error {
+	ext := filepath.Ext(path)
+	if ext != ".zip" {
+		return nil
+	}
+	
+	println(path)
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		panic(err)
+	}
+	defer r.Close()
+
+	base := filepath.Base(path)
+	dir := filepath.Dir(path)
+	tmpfname := filepath.Join(cacheDir, "1.jpg")
+
+	for idx, f := range r.File {
+		ext := filepath.Ext(f.Name)
+		if ext != ".jpg" {
+			continue
+		}
+
+		dst := filepath.Join(cacheDir, dir, base, fmt.Sprintf("%03d.jpg", idx))
+		if exists(dst) {
+			continue
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			panic(err)
+		}
+		
+		tmpf, err := os.Create(tmpfname)
+		if err != nil {
+			panic(err)
+		}
+		
+		_, err = io.Copy(tmpf, rc)
+		if err != nil {
+			panic(err)
+		}
+		
+		rc.Close()
+		tmpf.Close()
+
+		println("convert", "-auto-orient", tmpfname+"[480x480]", dst)
+
+		cmd := exec.Command("convert", "-auto-orient", tmpfname+"[480x480]", dst)
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+		if err := cmd.Wait(); err != nil {
+			panic(err)
+		}
+	}
+	
+	return nil
+}
+
+func convertZips() {
+	filepath.Walk(".", convertZip)
 }
 
 func collectCachedDirs(path string, info os.FileInfo, err error) error {
@@ -136,6 +202,12 @@ func initVars() {
 		panic(err)
 	}
 	mainPage = string(text)
+
+	text, err = ioutil.ReadFile("templates/toc.html")
+	if err != nil {
+		panic(err)
+	}
+	tocPage = string(text)
 }
 
 func dumpEntries(entries []*blogEntry) {
@@ -148,6 +220,7 @@ func dumpEntries(entries []*blogEntry) {
 }
 
 func getTitle(name string) string {
+	name = strings.TrimSuffix(name, ".zip")
 	re := regexp.MustCompile(`([A-Z\&])`)
 	p := strings.SplitN(name, "_", 2)
 	if len(p) < 2 {
@@ -213,6 +286,7 @@ func convertPhotos(entries []*blogEntry) {
 }
 
 func renderPages(entries []*blogEntry) {
+	toc := "<ul>"
 	for idx, entry := range entries {
 		imgs := ""
 		prev_href := ""
@@ -239,14 +313,14 @@ func renderPages(entries []*blogEntry) {
 		}
 
 		if idx > 0 {
-			prev_href = fmt.Sprintf("&lt;&lt; <a href=\"page-%03d.html\">%s %s</a>", idx-1, entries[idx-1].date, entries[idx-1].title)
+			prev_href = fmt.Sprintf("<a href=\"page-%03d.html\">prev</a>", idx-1)
 		}
 
 		if idx >= 0 {
 			if idx == len(entries)-2 {
-				next_href = fmt.Sprintf("&gt;&gt; <a href=\"index.html\">%s %s</a>", entries[idx+1].date, entries[idx+1].title)
+				next_href = fmt.Sprintf("<a href=\"index.html\">next</a>")
 			} else if idx < len(entries)-2 {
-				next_href = fmt.Sprintf("&gt;&gt; <a href=\"page-%03d.html\">%s %s</a>", idx+1, entries[idx+1].date, entries[idx+1].title)
+				next_href = fmt.Sprintf("<a href=\"page-%03d.html\">next</a>", idx+1)
 			}
 		}
 
@@ -260,7 +334,23 @@ func renderPages(entries []*blogEntry) {
 			panic(err)
 		}
 		println("saved:", page)
+		href := ""
+		if idx == 0 {
+			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
+		} else {
+			href = fmt.Sprintf("<a href=\"index.html\">%s %s</a>", entry.date, entry.title)
+		}
+	
+		toc += fmt.Sprintf("<li>%s</li>", href)
 	}
+
+	tocfile := filepath.Join(buildDir, "toc.html")
+	out := strings.Replace(string(tocPage), "{contents}", toc, 1)
+	err := ioutil.WriteFile(tocfile, []byte(out), 0666)
+	if err != nil {
+		panic(err)
+	}
+	println("saved: " + tocfile)
 }
 
 func linkIndexPage() {
@@ -287,8 +377,9 @@ func main() {
 	}
 
 	filepath.Walk(".", collectFtpDirs)
-
+	dumpEntries(entries)
 	convertPhotos(entries)
+	convertZips()
 
 	entries = nil
 	if err := os.Chdir(cacheDir); err != nil {
