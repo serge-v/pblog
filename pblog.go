@@ -323,22 +323,31 @@ func renderPages(entries []*blogEntry) {
 				next_href = fmt.Sprintf("<a href=\"page-%03d.html\">next</a>", idx+1)
 			}
 		}
-
+	
 		out := strings.Replace(string(mainPage), "{contents}", imgs, 1)
 //		println(imgs)
 		out = strings.Replace(out, "{prev_href}", prev_href, 2)
 		out = strings.Replace(out, "{next_href}", next_href, 2)
 		out = strings.Replace(out, "{title}", entry.title, 1)
+
+		zipFname := filepath.Join(ftpDir, entry.path)
+		zipHref := ""
+		if strings.HasSuffix(zipFname, ".zip") && exists(zipFname) {
+			zipHref = fmt.Sprintf("<a href=\"%s\">download</a>", zipFname)
+		}
+
+		out = strings.Replace(out, "{zip_href}", zipHref, 2)
+
 		err := ioutil.WriteFile(page, []byte(out), 0666)
 		if err != nil {
 			panic(err)
 		}
 		println("saved:", page)
 		href := ""
-		if idx == 0 {
-			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
-		} else {
+		if idx == len(entries)-1 {
 			href = fmt.Sprintf("<a href=\"index.html\">%s %s</a>", entry.date, entry.title)
+		} else {
+			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
 		}
 	
 		toc += fmt.Sprintf("<li>%s</li>", href)
