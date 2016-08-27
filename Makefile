@@ -4,8 +4,8 @@ LDFLAGS="-X main.date=$(DATE) -X main.version=$(VERSION)"
 
 all: pblog
 
-pblog: pblog.go
-	go build -ldflags $(LDFLAGS) pblog.go
+pblog: pblog.go templates_embed.go
+	go build -ldflags $(LDFLAGS) pblog.go templates_embed.go
 
 pblog.linux: pblog.go
 	env GOOS=linux GOARCH=amd64 go build -o pblog.linux -ldflags $(LDFLAGS) pblog.go
@@ -15,6 +15,10 @@ cgi-server: cgi-server.go
 
 deploy-prod: pblog.linux
 	./post-v1.sh
+
+run-prod:
+	../aceapi/apiexec ./pblog.sh
+	../aceapi/apiexec tail -50 ../../pblog/pblog_err.log
 
 clean:
 	rm -f pblog cgi-server pblog.linux

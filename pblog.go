@@ -37,7 +37,7 @@ type blogEntry struct {
 }
 
 var (
-	ftpDir, cacheDir, buildDir, mainPage, tocPage string
+	ftpDir, cacheDir, buildDir string
 	entries []*blogEntry
 	lastEntry *blogEntry
 	version, date     string
@@ -86,6 +86,13 @@ func convertZip(path string, info os.FileInfo, err error) error {
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	tmpfname := filepath.Join(cacheDir, "1.jpg")
+	
+	zipCacheDir := filepath.Join(cacheDir, dir, base)
+	if !exists(zipCacheDir) {
+		if err := os.Mkdir(zipCacheDir, 0755); err != nil {
+			panic(err)
+		}
+	}
 
 	for idx, f := range r.File {
 		ext := filepath.Ext(f.Name)
@@ -93,7 +100,7 @@ func convertZip(path string, info os.FileInfo, err error) error {
 			continue
 		}
 
-		dst := filepath.Join(cacheDir, dir, base, fmt.Sprintf("%03d.jpg", idx))
+		dst := filepath.Join(zipCacheDir, fmt.Sprintf("%03d.jpg", idx))
 		if exists(dst) {
 			continue
 		}
@@ -196,18 +203,6 @@ func initVars() {
 			panic(err)
 		}
 	}
-
-	text, err := ioutil.ReadFile("templates/main.html")
-	if err != nil {
-		panic(err)
-	}
-	mainPage = string(text)
-
-	text, err = ioutil.ReadFile("templates/toc.html")
-	if err != nil {
-		panic(err)
-	}
-	tocPage = string(text)
 }
 
 func dumpEntries(entries []*blogEntry) {
@@ -324,7 +319,7 @@ func renderPages(entries []*blogEntry) {
 			}
 		}
 	
-		out := strings.Replace(string(mainPage), "{contents}", imgs, 1)
+		out := strings.Replace(main_template, "{contents}", imgs, 1)
 //		println(imgs)
 		out = strings.Replace(out, "{prev_href}", prev_href, 2)
 		out = strings.Replace(out, "{next_href}", next_href, 2)
@@ -333,7 +328,7 @@ func renderPages(entries []*blogEntry) {
 		zipFname := filepath.Join(ftpDir, entry.path)
 		zipHref := ""
 		if strings.HasSuffix(zipFname, ".zip") && exists(zipFname) {
-			zipHref = fmt.Sprintf("<a href=\"%s\">download</a>", zipFname)
+			zipHref = fmt.Sprintf("<a href=\"ftpdir/%s\">download</a>", entry.path)
 		}
 
 		out = strings.Replace(out, "{zip_href}", zipHref, 2)
@@ -347,14 +342,14 @@ func renderPages(entries []*blogEntry) {
 		if idx == len(entries)-1 {
 			href = fmt.Sprintf("<a href=\"index.html\">%s %s</a>", entry.date, entry.title)
 		} else {
-			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
+				href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
 		}
 	
 		toc += fmt.Sprintf("<li>%s</li>", href)
 	}
 
 	tocfile := filepath.Join(buildDir, "toc.html")
-	out := strings.Replace(string(tocPage), "{contents}", toc, 1)
+	out := strings.Replace(toc_template, "{contents}", toc, 1)
 	err := ioutil.WriteFile(tocfile, []byte(out), 0666)
 	if err != nil {
 		panic(err)
@@ -370,6 +365,8 @@ func linkIndexPage() {
 	}
 	println("link:", page, " -> " + buildDir + "/index.html")
 }
+
+//go:generate go run embed-templates.go
 
 func main() {
 	flag.Parse()
