@@ -9,39 +9,41 @@
 package main
 
 import (
+	"archive/zip"
+	"flag"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
-	"fmt"
 	"path/filepath"
-	"io/ioutil"
-	"strings"
 	"regexp"
-	"flag"
-	"archive/zip"
-	"io"
+	"strings"
 )
 
 const maxToConvert = 200
 
+var converted = 0
+
 type photo struct {
-	src string
+	src    string
 	cached string
 }
 
 type blogEntry struct {
-	name string
-	title string
-	path string
-	date string
+	name   string
+	title  string
+	path   string
+	date   string
 	photos []*photo
 }
 
 var (
 	ftpDir, cacheDir, buildDir string
-	entries []*blogEntry
-	lastEntry *blogEntry
-	version, date     string
-	showVersion = flag.Bool("v", false, "show version")
+	entries                    []*blogEntry
+	lastEntry                  *blogEntry
+	version, date              string
+	showVersion                = flag.Bool("v", false, "show version")
 )
 
 func collectFtpDirs(path string, info os.FileInfo, err error) error {
@@ -56,7 +58,7 @@ func collectFtpDirs(path string, info os.FileInfo, err error) error {
 		entries = append(entries, lastEntry)
 		return nil
 	}
-	
+
 	ext := filepath.Ext(path)
 
 	if ext == ".jpg" {
@@ -71,11 +73,15 @@ func collectFtpDirs(path string, info os.FileInfo, err error) error {
 }
 
 func convertZip(path string, info os.FileInfo, err error) error {
+	if converted > maxToConvert {
+		return filepath.SkipDir
+	}
+
 	ext := filepath.Ext(path)
 	if ext != ".zip" {
 		return nil
 	}
-	
+
 	println(path)
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -86,7 +92,7 @@ func convertZip(path string, info os.FileInfo, err error) error {
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	tmpfname := filepath.Join(cacheDir, "1.jpg")
-	
+
 	zipCacheDir := filepath.Join(cacheDir, dir, base)
 	if !exists(zipCacheDir) {
 		if err := os.Mkdir(zipCacheDir, 0755); err != nil {
@@ -109,17 +115,17 @@ func convertZip(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			panic(err)
 		}
-		
+
 		tmpf, err := os.Create(tmpfname)
 		if err != nil {
 			panic(err)
 		}
-		
+
 		_, err = io.Copy(tmpf, rc)
 		if err != nil {
 			panic(err)
 		}
-		
+
 		rc.Close()
 		tmpf.Close()
 
@@ -132,8 +138,9 @@ func convertZip(path string, info os.FileInfo, err error) error {
 		if err := cmd.Wait(); err != nil {
 			panic(err)
 		}
+		converted++
 	}
-	
+
 	return nil
 }
 
@@ -155,7 +162,7 @@ func collectCachedDirs(path string, info os.FileInfo, err error) error {
 		entries = append(entries, lastEntry)
 		return nil
 	}
-	
+
 	ext := filepath.Ext(path)
 
 	if ext == ".jpg" {
@@ -184,8 +191,10 @@ func initVars() {
 		panic(err)
 	}
 
-	buildDir = os.Getenv("DOCUMENT_ROOT") + "/../pblog"
-	buildDir, _ = filepath.Abs(buildDir)
+	buildDir, err = filepath.Abs(".")
+	if err != nil {
+		panic(err)
+	}
 
 	if !exists(buildDir) {
 		buildDir, err = filepath.Abs("build")
@@ -221,7 +230,9 @@ func getTitle(name string) string {
 	if len(p) < 2 {
 		return p[0]
 	}
-	title := strings.Trim(re.ReplaceAllString(p[1], " $1"), " ")
+	p1 := strings.Replace(p[1], "_", " ", 1)
+	p1 = strings.Replace(p1, "Panorams", "Panoramas", 1)
+	title := strings.Trim(re.ReplaceAllString(p1, " $1"), " ")
 	return title
 }
 
@@ -281,7 +292,7 @@ func convertPhotos(entries []*blogEntry) {
 }
 
 func renderPages(entries []*blogEntry) {
-	toc := "<ul>"
+	toc := make([]string, 0)
 	for idx, entry := range entries {
 		imgs := ""
 		prev_href := ""
@@ -289,13 +300,13 @@ func renderPages(entries []*blogEntry) {
 		page := fmt.Sprintf("%s/page-%03d.html", buildDir, idx)
 
 		for _, photo := range entry.photos {
-			rel_cached, err := filepath.Rel(buildDir, cacheDir + "/" + photo.cached)
+			rel_cached, err := filepath.Rel(buildDir, cacheDir+"/"+photo.cached)
 			if err != nil {
 				panic(err)
 			}
 			imgs += "<br><br><br><br><br>"
 			if photo.src != "" {
-				rel_src, err := filepath.Rel(buildDir, ftpDir + "/" + photo.cached)
+				rel_src, err := filepath.Rel(buildDir, ftpDir+"/"+photo.cached)
 				if err != nil {
 					panic(err)
 				}
@@ -318,9 +329,9 @@ func renderPages(entries []*blogEntry) {
 				next_href = fmt.Sprintf("<a href=\"page-%03d.html\">next</a>", idx+1)
 			}
 		}
-	
+
 		out := strings.Replace(main_template, "{contents}", imgs, 1)
-//		println(imgs)
+		//		println(imgs)
 		out = strings.Replace(out, "{prev_href}", prev_href, 2)
 		out = strings.Replace(out, "{next_href}", next_href, 2)
 		out = strings.Replace(out, "{title}", entry.title, 1)
@@ -342,14 +353,20 @@ func renderPages(entries []*blogEntry) {
 		if idx == len(entries)-1 {
 			href = fmt.Sprintf("<a href=\"index.html\">%s %s</a>", entry.date, entry.title)
 		} else {
-				href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
+			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
 		}
-	
-		toc += fmt.Sprintf("<li>%s</li>", href)
+
+		toc = append(toc, href)
 	}
 
+	toctext := "<ul>\n"
+	for i := len(toc) - 1; i >= 0; i-- {
+		toctext += fmt.Sprintf("<li>%s</li>\n", toc[i])
+	}
+	toctext += "</ul>\n"
+
 	tocfile := filepath.Join(buildDir, "toc.html")
-	out := strings.Replace(toc_template, "{contents}", toc, 1)
+	out := strings.Replace(toc_template, "{contents}", toctext, 1)
 	err := ioutil.WriteFile(tocfile, []byte(out), 0666)
 	if err != nil {
 		panic(err)
@@ -360,10 +377,10 @@ func renderPages(entries []*blogEntry) {
 func linkIndexPage() {
 	page := fmt.Sprintf("%s/page-%03d.html", buildDir, len(entries)-1)
 	os.Remove(buildDir + "/index.html")
-	if err := os.Link(page, buildDir + "/index.html"); err != nil {
+	if err := os.Link(page, buildDir+"/index.html"); err != nil {
 		panic(err)
 	}
-	println("link:", page, " -> " + buildDir + "/index.html")
+	println("link:", page, " -> "+buildDir+"/index.html")
 }
 
 //go:generate go run embed-templates.go
@@ -377,7 +394,7 @@ func main() {
 	}
 
 	initVars()
-	
+
 	if err := os.Chdir(ftpDir); err != nil {
 		panic(err)
 	}
@@ -395,6 +412,6 @@ func main() {
 
 	renderPages(entries)
 	linkIndexPage()
-//	dumpEntries(entries)
+	//	dumpEntries(entries)
 	dumpTitles(entries)
 }

@@ -7,8 +7,8 @@ all: pblog
 pblog: pblog.go templates_embed.go
 	go build -ldflags $(LDFLAGS) pblog.go templates_embed.go
 
-pblog.linux: pblog.go
-	env GOOS=linux GOARCH=amd64 go build -o pblog.linux -ldflags $(LDFLAGS) pblog.go
+pblog.linux: pblog.go templates_embed.go
+	env GOOS=linux GOARCH=amd64 go build -o pblog.linux -ldflags $(LDFLAGS) pblog.go templates_embed.go
 
 cgi-server: cgi-server.go
 	go build cgi-server.go
