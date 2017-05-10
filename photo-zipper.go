@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	album_path = "../acenet/photos/albums/places/usa/part3"
+	album_path = "../acenet/photos/albums/part4"
 )
 
 var (

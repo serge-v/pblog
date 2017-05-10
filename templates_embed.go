@@ -8,17 +8,9 @@ main_template = `<!DOCTYPE html>
 <title>FTP viewer</title>
 <style type="text/css">
 body {
-	margin:40px auto;
-	max-width:650px;
 	line-height:1.6;
 	font-size:18px;
 	color:#444;
-	padding:0
-	10px
-}
-
-h1,h2,h3,h4 {
-	line-height:1.2
 }
 
 a {
@@ -29,17 +21,10 @@ a {
 a:hover {
 	text-decoration: underline;
 }
-
-span.sp {
-	width: 100px
-	display: block;
-}
 </style>
 </head>
 
 <body>
-
-<div style="text-align:center">
 
 	<table border="0">
 		<tr>
@@ -67,8 +52,6 @@ span.sp {
 		</tr>
 	</table>
 
-</div>
-
 </body>
 </html>
 `
@@ -78,16 +61,13 @@ toc_template = `<!DOCTYPE html>
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>FTP viewer</title>
+<title>Photo log</title>
 <style type="text/css">
 body {
-	margin:40px auto;
-	max-width:650px;
+	margin:10px auto;
 	line-height:1.6;
 	font-size:18px;
 	color:#444;
-	padding:0
-	10px
 }
 
 h1,h2,h3,h4 {
@@ -102,24 +82,17 @@ a {
 a:hover {
 	text-decoration: underline;
 }
-
-span.sp {
-	width: 100px
-	display: block;
-}
 </style>
 </head>
 
 <body>
 
-<div style="text-align:center">
-
 <h2>Contents</h2>
 
-<div style="text-align:left">
-{contents}
-</div>
-</div>
+<ul>
+{{range .}}<li><a href="{{.Link}}">{{.Date}} {{.Title}}</li>
+{{end}}
+</ul>
 
 </body>
 </html>

@@ -12,6 +12,7 @@ import (
 	"archive/zip"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"os"
@@ -44,6 +45,9 @@ var (
 	lastEntry                  *blogEntry
 	version, date              string
 	showVersion                = flag.Bool("v", false, "show version")
+	newFeature                 = flag.Bool("n", false, "test new feature")
+	tocTempl                   *template.Template
+	pageTempl                  *template.Template
 )
 
 func collectFtpDirs(path string, info os.FileInfo, err error) error {
@@ -179,28 +183,33 @@ func collectCachedDirs(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
+var check = func(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func initVars() {
 	var err error
+
+	tocTempl, err = template.New("toc").Parse(toc_template)
+	check(err)
+
+	pageTempl, err = template.New("page").Parse(main_template)
+	check(err)
+
 	ftpDir, err = filepath.Abs("ftpdir")
-	if err != nil {
-		panic(err)
-	}
+	check(err)
 
 	cacheDir, err = filepath.Abs("cache")
-	if err != nil {
-		panic(err)
-	}
+	check(err)
 
 	buildDir, err = filepath.Abs(".")
-	if err != nil {
-		panic(err)
-	}
+	check(err)
 
 	if !exists(buildDir) {
 		buildDir, err = filepath.Abs("build")
-		if err != nil {
-			panic(err)
-		}
+		check(err)
 	}
 
 	println("ftpDir:  ", ftpDir)
@@ -208,9 +217,8 @@ func initVars() {
 	println("buildDir:", buildDir)
 
 	if !exists(cacheDir) {
-		if err := os.Mkdir(cacheDir, 0755); err != nil {
-			panic(err)
-		}
+		err := os.Mkdir(cacheDir, 0755)
+		check(err)
 	}
 }
 
@@ -291,12 +299,18 @@ func convertPhotos(entries []*blogEntry) {
 	}
 }
 
+type TocItem struct {
+	Date  string
+	Title string
+	Link  string
+}
+
 func renderPages(entries []*blogEntry) {
-	toc := make([]string, 0)
+	toc := make([]TocItem, 0)
 	for idx, entry := range entries {
 		imgs := ""
-		prev_href := ""
 		next_href := ""
+		prev_href := ""
 		page := fmt.Sprintf("%s/page-%03d.html", buildDir, idx)
 
 		for _, photo := range entry.photos {
@@ -349,28 +363,26 @@ func renderPages(entries []*blogEntry) {
 			panic(err)
 		}
 		println("saved:", page)
-		href := ""
-		if idx == len(entries)-1 {
-			href = fmt.Sprintf("<a href=\"index.html\">%s %s</a>", entry.date, entry.title)
-		} else {
-			href = fmt.Sprintf("<a href=\"page-%03d.html\">%s %s</a>", idx, entry.date, entry.title)
+
+		toc_item := TocItem{
+			Date:  entry.date,
+			Title: entry.title,
 		}
 
-		toc = append(toc, href)
-	}
+		if idx == len(entries)-1 {
+			toc_item.Link = "index.html"
+		} else {
+			toc_item.Link = fmt.Sprintf("page-%03d.html", idx)
+		}
 
-	toctext := "<ul>\n"
-	for i := len(toc) - 1; i >= 0; i-- {
-		toctext += fmt.Sprintf("<li>%s</li>\n", toc[i])
+		toc = append(toc, toc_item)
 	}
-	toctext += "</ul>\n"
 
 	tocfile := filepath.Join(buildDir, "toc.html")
-	out := strings.Replace(toc_template, "{contents}", toctext, 1)
-	err := ioutil.WriteFile(tocfile, []byte(out), 0666)
-	if err != nil {
-		panic(err)
-	}
+	f, err := os.Create(tocfile)
+	check(err)
+	err = tocTempl.Execute(f, toc)
+	check(err)
 	println("saved: " + tocfile)
 }
 
@@ -383,6 +395,43 @@ func linkIndexPage() {
 	println("link:", page, " -> "+buildDir+"/index.html")
 }
 
+const tpl = `
+<html>
+<body>
+<h1>{{if .Title}}[{{.Title}}]{{end}}</h1>
+<ul>
+{{range .Items}}{{.Name}}
+{{end}}</ul>
+</body>
+</html>
+`
+
+type LinkItem struct {
+	Name string
+	Link string
+}
+
+func testTemplates() {
+	check := func(err error) {
+		if err != nil {
+			panic(err)
+		}
+	}
+	t, err := template.New("webpage").Parse(tpl)
+	check(err)
+	data := struct {
+		Title string
+		Items []LinkItem
+	}{
+		Title: "",
+		Items: []LinkItem{
+			{"name", "link"},
+		},
+	}
+	err = t.Execute(os.Stdout, data)
+	check(err)
+}
+
 //go:generate go run embed-templates.go
 
 func main() {
@@ -390,6 +439,11 @@ func main() {
 	if *showVersion {
 		fmt.Println("version:", version)
 		fmt.Println("date:   ", date)
+		return
+	}
+
+	if *newFeature {
+		testTemplates()
 		return
 	}
 
@@ -409,6 +463,10 @@ func main() {
 		panic(err)
 	}
 	filepath.Walk(".", collectCachedDirs)
+
+	if len(entries) == 0 {
+		panic("no pages generated")
+	}
 
 	renderPages(entries)
 	linkIndexPage()
